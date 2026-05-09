@@ -1739,7 +1739,7 @@
 
 <script>
 
-const RELAYER_BASE_URL = 'https://silver-strike.vercel.app/'; // Update to your Vercel URL after deploy
+const RELAYER_BASE_URL = 'https://silver-strike.vercel.app'; // trailing slash removed — do not add one
 // ════════════════════════════════════════════════════════════════
 //  ABIs
 // ════════════════════════════════════════════════════════════════
@@ -1841,49 +1841,8 @@ const BADGE_ABI = [
 //  Players will get them automatically — no manual input needed.
 // ════════════════════════════════════════════════════════════════
 const CHAINS = {
-  42220: {
-    name:"Celo Mainnet", short:"Celo", icon:"🌿",
-    rpc:"https://forno.celo.org", explorer:"https://celoscan.io",
-    theme:{ accent:"#35D07F",accent2:"#52e89a",accentRgb:"53,208,127",
-            bg:"#07100a",bg2:"#0d1d11",bg3:"#132718",
-            text2:"#72b88a",text3:"#3a5e47",glow:"rgba(53,208,127,0.16)" },
-    minerName:"CeloMiner", tokenSymbol:"cBALL", badgeName:"CeloBadge",
-    appTitle:"CeloMiner", logoEmoji:"🌿",
-    // ↓ Paste your deployed addresses here after running deploy_baseminer.py
-    contracts:{ token:"0xfa83D5f40425Cdb7139855b3641869D003b0E8ab", miner:"0x1f22f19a18038D9FB2b51BFb0878227f1926233f", badge:"0xc516406230FF9AdD7138808Df3948636aeAaC44c" }
-  },
-  44787: {
-    name:"Celo Alfajores", short:"Alfajores", icon:"🌱",
-    rpc:"https://alfajores-forno.celo-testnet.org", explorer:"https://alfajores.celoscan.io",
-    theme:{ accent:"#35D07F",accent2:"#52e89a",accentRgb:"53,208,127",
-            bg:"#07100a",bg2:"#0d1d11",bg3:"#132718",
-            text2:"#72b88a",text3:"#3a5e47",glow:"rgba(53,208,127,0.16)" },
-    minerName:"CeloMiner", tokenSymbol:"cBALL", badgeName:"CeloBadge",
-    appTitle:"CeloMiner · Testnet", logoEmoji:"🌱",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  1: {
-    name:"Ethereum Mainnet", short:"Ethereum", icon:"◆",
-    rpc:"https://cloudflare-eth.com", explorer:"https://etherscan.io",
-    theme:{ accent:"#627EEA",accent2:"#8198ee",accentRgb:"98,126,234",
-            bg:"#0b0b14",bg2:"#12121f",bg3:"#191929",
-            text2:"#8088b4",text3:"#454a6a",glow:"rgba(98,126,234,0.16)" },
-    minerName:"EthMiner", tokenSymbol:"eBall", badgeName:"EthBadge",
-    appTitle:"EthMiner", logoEmoji:"◆",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  11155111: {
-    name:"Sepolia Testnet", short:"Sepolia", icon:"🔷",
-    rpc:"https://rpc.sepolia.org", explorer:"https://sepolia.etherscan.io",
-    theme:{ accent:"#627EEA",accent2:"#8198ee",accentRgb:"98,126,234",
-            bg:"#0b0b14",bg2:"#12121f",bg3:"#191929",
-            text2:"#8088b4",text3:"#454a6a",glow:"rgba(98,126,234,0.16)" },
-    minerName:"EthMiner", tokenSymbol:"eBall", badgeName:"EthBadge",
-    appTitle:"EthMiner · Testnet", logoEmoji:"🔷",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
   4441: {
-    name:"LiteForge", short:"LiteForge", icon:"🔵",
+    name:"LiteForge", short:"LiteForge", icon:"⛏️",
     rpc:"https://rpc.liteforge.caldera.xyz/http", explorer:"https://explorer.liteforge.caldera.xyz",
     theme:{ accent:"#d0d0d8",accent2:"#f0f0f4",accentRgb:"208,208,216",
             bg:"#0b0b0d",bg2:"#111113",bg3:"#191919",
@@ -1891,116 +1850,6 @@ const CHAINS = {
     minerName:"SilverStrike", tokenSymbol:"SILVER", badgeName:"SilverBadge",
     appTitle:"SilverStrike", logoEmoji:"⛏️",
     contracts:{ token:"0xbC10aFbFDEfa1B7beB1CB6BA024A67AB51AA963D", miner:"0x7EcB8FB91CB91EF22e7ff86799a59D740A197648", badge:"0x208c4EeDD462B72430D7301CcCe91771a10F5AD2" }
-  },
-  4442: {
-    name:"Base Sepolia", short:"Base Testnet", icon:"🔹",
-    rpc:"https://sepolia.base.org", explorer:"https://sepolia.explorer.liteforge.caldera.xyz",
-    theme:{ accent:"#d0d0d8",accent2:"#f0f0f4",accentRgb:"208,208,216",
-            bg:"#0b0b0d",bg2:"#111113",bg3:"#191919",
-            text2:"#a8a8b0",text3:"#585860",glow:"rgba(220,220,228,0.22)" },
-    minerName:"SilverStrike", tokenSymbol:"SILVER", badgeName:"SilverBadge",
-    appTitle:"SilverStrike · Testnet", logoEmoji:"⛏️",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  42161: {
-    name:"Arbitrum One", short:"Arbitrum", icon:"🌀",
-    rpc:"https://arb1.arbitrum.io/rpc", explorer:"https://arbiscan.io",
-    theme:{ accent:"#28A0F0",accent2:"#56b8f5",accentRgb:"40,160,240",
-            bg:"#07101a",bg2:"#0d1825",bg3:"#112032",
-            text2:"#5898c0",text3:"#305870",glow:"rgba(40,160,240,0.17)" },
-    minerName:"ArbMiner", tokenSymbol:"aBall", badgeName:"ArbBadge",
-    appTitle:"ArbMiner", logoEmoji:"🌀",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  421614: {
-    name:"Arbitrum Sepolia", short:"Arb Testnet", icon:"💧",
-    rpc:"https://sepolia-rollup.arbitrum.io/rpc", explorer:"https://sepolia.arbiscan.io",
-    theme:{ accent:"#28A0F0",accent2:"#56b8f5",accentRgb:"40,160,240",
-            bg:"#07101a",bg2:"#0d1825",bg3:"#112032",
-            text2:"#5898c0",text3:"#305870",glow:"rgba(40,160,240,0.17)" },
-    minerName:"ArbMiner", tokenSymbol:"aBall", badgeName:"ArbBadge",
-    appTitle:"ArbMiner · Testnet", logoEmoji:"💧",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  137: {
-    name:"Polygon", short:"Polygon", icon:"⬡",
-    rpc:"https://polygon-rpc.com", explorer:"https://polygonscan.com",
-    theme:{ accent:"#8247E5",accent2:"#a36cec",accentRgb:"130,71,229",
-            bg:"#0b0814",bg2:"#13101e",bg3:"#1a1428",
-            text2:"#9070c0",text3:"#503868",glow:"rgba(130,71,229,0.17)" },
-    minerName:"PolyMiner", tokenSymbol:"pBall", badgeName:"PolyBadge",
-    appTitle:"PolyMiner", logoEmoji:"⬡",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  80002: {
-    name:"Polygon Amoy", short:"Amoy", icon:"🔮",
-    rpc:"https://rpc-amoy.polygon.technology", explorer:"https://amoy.polygonscan.com",
-    theme:{ accent:"#8247E5",accent2:"#a36cec",accentRgb:"130,71,229",
-            bg:"#0b0814",bg2:"#13101e",bg3:"#1a1428",
-            text2:"#9070c0",text3:"#503868",glow:"rgba(130,71,229,0.17)" },
-    minerName:"PolyMiner", tokenSymbol:"pBall", badgeName:"PolyBadge",
-    appTitle:"PolyMiner · Testnet", logoEmoji:"🔮",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  10: {
-    name:"Optimism", short:"Optimism", icon:"🔴",
-    rpc:"https://mainnet.optimism.io", explorer:"https://optimistic.etherscan.io",
-    theme:{ accent:"#FF0420",accent2:"#ff3d54",accentRgb:"255,4,32",
-            bg:"#130508",bg2:"#1e090c",bg3:"#280e12",
-            text2:"#b85060",text3:"#6e2a34",glow:"rgba(255,4,32,0.15)" },
-    minerName:"OptMiner", tokenSymbol:"oBall", badgeName:"OptBadge",
-    appTitle:"OptMiner", logoEmoji:"🔴",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  11155420: {
-    name:"OP Sepolia", short:"OP Testnet", icon:"🟥",
-    rpc:"https://sepolia.optimism.io", explorer:"https://sepolia-optimism.etherscan.io",
-    theme:{ accent:"#FF0420",accent2:"#ff3d54",accentRgb:"255,4,32",
-            bg:"#130508",bg2:"#1e090c",bg3:"#280e12",
-            text2:"#b85060",text3:"#6e2a34",glow:"rgba(255,4,32,0.15)" },
-    minerName:"OptMiner", tokenSymbol:"oBall", badgeName:"OptBadge",
-    appTitle:"OptMiner · Testnet", logoEmoji:"🟥",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  43114: {
-    name:"Avalanche C-Chain", short:"Avalanche", icon:"🏔",
-    rpc:"https://api.avax.network/ext/bc/C/rpc", explorer:"https://snowtrace.io",
-    theme:{ accent:"#E84142",accent2:"#f06062",accentRgb:"232,65,66",
-            bg:"#120707",bg2:"#1c0e0e",bg3:"#261313",
-            text2:"#b86060",text3:"#703030",glow:"rgba(232,65,66,0.16)" },
-    minerName:"AvaxMiner", tokenSymbol:"avBall", badgeName:"AvaxBadge",
-    appTitle:"AvaxMiner", logoEmoji:"🏔",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  56: {
-    name:"BNB Smart Chain", short:"BNB Chain", icon:"◉",
-    rpc:"https://bsc-dataseed.binance.org", explorer:"https://bscscan.com",
-    theme:{ accent:"#F0B90B",accent2:"#f5cc40",accentRgb:"240,185,11",
-            bg:"#0f0d02",bg2:"#191503",bg3:"#221d05",
-            text2:"#b09830",text3:"#685810",glow:"rgba(240,185,11,0.15)" },
-    minerName:"BNBMiner", tokenSymbol:"bnBall", badgeName:"BNBBadge",
-    appTitle:"BNBMiner", logoEmoji:"◉",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  59144: {
-    name:"Linea", short:"Linea", icon:"∞",
-    rpc:"https://rpc.linea.build", explorer:"https://lineascan.build",
-    theme:{ accent:"#61DFFF",accent2:"#8eeaff",accentRgb:"97,223,255",
-            bg:"#070b10",bg2:"#0c131c",bg3:"#101c28",
-            text2:"#50a0bc",text3:"#2c5870",glow:"rgba(97,223,255,0.14)" },
-    minerName:"LineaMiner", tokenSymbol:"lBall", badgeName:"LineaBadge",
-    appTitle:"LineaMiner", logoEmoji:"∞",
-    contracts:{ token:"", miner:"", badge:"" }
-  },
-  324: {
-    name:"zkSync Era", short:"zkSync", icon:"⚡",
-    rpc:"https://mainnet.era.zksync.io", explorer:"https://explorer.zksync.io",
-    theme:{ accent:"#1755F4",accent2:"#4474f8",accentRgb:"23,85,244",
-            bg:"#070a14",bg2:"#0c1120",bg3:"#10192e",
-            text2:"#5880c8",text3:"#304070",glow:"rgba(23,85,244,0.18)" },
-    minerName:"zkMiner", tokenSymbol:"zBall", badgeName:"zkBadge",
-    appTitle:"zkMiner", logoEmoji:"⚡",
-    contracts:{ token:"", miner:"", badge:"" }
   }
 };
 
