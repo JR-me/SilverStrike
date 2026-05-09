@@ -1890,7 +1890,7 @@ const CHAINS = {
             text2:"#a8a8b0",text3:"#585860",glow:"rgba(220,220,228,0.22)" },
     minerName:"SilverStrike", tokenSymbol:"SILVER", badgeName:"SilverBadge",
     appTitle:"SilverStrike", logoEmoji:"⛏️",
-    contracts:{ token:"0x13FeC2AD48fcADb14fc06603675ECc46455AE3f7", miner:"0x0A8a6DECe70e632375251a821a260A8bAa9bf99B", badge:"0xE690Cd2A34880Da9DD28a593ce75c198084eb9A5" }
+    contracts:{ token:"0xbC10aFbFDEfa1B7beB1CB6BA024A67AB51AA963D", miner:"0x7EcB8FB91CB91EF22e7ff86799a59D740A197648", badge:"0x208c4EeDD462B72430D7301CcCe91771a10F5AD2" }
   },
   4442: {
     name:"Base Sepolia", short:"Base Testnet", icon:"🔹",
@@ -2019,8 +2019,21 @@ const TOOL_EMOJIS = ['⛏️','🔩','🏗️'];
 // ════════════════════════════════════════════════════════════════
 //  Wallet environment detection
 // ════════════════════════════════════════════════════════════════
-const isMiniPay = () => !!(window.ethereum && window.ethereum.isMiniPay);
-const isBaseApp = () => !!(window.ethereum && window.ethereum.isCoinbaseWallet);
+const isMiniPay  = () => !!(window.ethereum && window.ethereum.isMiniPay);
+const isBaseApp  = () => !!(window.ethereum && window.ethereum.isCoinbaseWallet);
+const isOKX      = () => !!(window.okxwallet) || !!(window.ethereum && window.ethereum.isOkxWallet);
+
+// Resolve the best available EIP-1193 provider across all injected wallets
+function resolveProvider() {
+  // OKX injects window.okxwallet as its dedicated provider
+  if (window.okxwallet)                         return window.okxwallet;
+  // Fallback: some injectors only use window.ethereum
+  if (window.ethereum?.isOkxWallet)             return window.ethereum;
+  // MetaMask / Rabby / others
+  if (window.ethereum)                          return window.ethereum;
+  // EIP-6963 multi-wallet environments expose window.ethereum as a proxy
+  return null;
+}
 // isFarcaster: uses the official sdk.isInMiniApp() which verifies context
 // communication rather than just checking if the SDK object exists.
 async function isFarcaster() {
@@ -2494,35 +2507,42 @@ function updateChainBadge() {
 // ════════════════════════════════════════════════════════════════
 async function connectWallet() {
   if (await isFarcaster()) { await autoConnectFarcaster(); return; }
-  if (!window.ethereum) {
-    toast('No wallet found', 'Install MetaMask or Rabby Wallet to play SilverStrike.', 'error');
-    return;
-  }
   if (isMiniPay()) { await autoConnectMiniPay(); return; }
   if (isBaseApp())  { await autoConnectBaseApp();  return; }
+
+  const ethProvider = resolveProvider();
+  if (!ethProvider) {
+    toast('No wallet found',
+      'Please install MetaMask, Rabby, OKX Wallet, or any EVM-compatible wallet.',
+      'error');
+    return;
+  }
+
   try {
-    const accs = await window.ethereum.request({ method:'eth_requestAccounts' });
+    const accs = await ethProvider.request({ method: 'eth_requestAccounts' });
     address  = accs[0];
-    provider = new ethers.BrowserProvider(window.ethereum);
+    provider = new ethers.BrowserProvider(ethProvider);
     signer   = await provider.getSigner();
 
     // Always force LiteForge — prompt to switch/add if wrong chain
-    await ensureLiteForge();
+    await ensureLiteForge(ethProvider);
 
     updateWalletUI();
     initContracts();
     initCIContracts();
     checkGasBanner();
-    toast('Connected to LiteForge', shortAddr(address), 'success');
+
+    const walletName = isOKX() ? 'OKX Wallet' : 'Wallet';
+    toast(`${walletName} connected`, shortAddr(address), 'success');
 
     // Watch for chain changes
-    window.ethereum.on('chainChanged', async (hex) => {
+    ethProvider.on('chainChanged', async (hex) => {
       const id = parseInt(hex, 16);
       if (id !== 4441) {
         showWrongChainModal();
       } else {
         hideWrongChainModal();
-        provider = new ethers.BrowserProvider(window.ethereum);
+        provider = new ethers.BrowserProvider(ethProvider);
         signer   = await provider.getSigner();
         selectedChainId = 4441;
         cfg.chainId     = 4441;
@@ -2536,7 +2556,7 @@ async function connectWallet() {
     });
 
     // Watch for account changes
-    window.ethereum.on('accountsChanged', newAccs => {
+    ethProvider.on('accountsChanged', newAccs => {
       address = newAccs[0] || null;
       updateWalletUI();
       if (address) { initContracts(); initCIContracts(); checkGasBanner(); }
@@ -2549,7 +2569,8 @@ async function connectWallet() {
 }
 
 // ── Ensure wallet is on LiteForge — switch or add chain ─────────────────
-async function ensureLiteForge() {
+async function ensureLiteForge(ethProvider) {
+  ethProvider = ethProvider || resolveProvider() || window.ethereum;
   const LITEFORGE_CHAIN_ID     = '0x115d'; // 4441 in hex
   const LITEFORGE_CHAIN_PARAMS = {
     chainId:  LITEFORGE_CHAIN_ID,
@@ -2566,7 +2587,7 @@ async function ensureLiteForge() {
   showWrongChainModal();
 
   try {
-    await window.ethereum.request({
+    await ethProvider.request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: LITEFORGE_CHAIN_ID }],
     });
@@ -2574,7 +2595,7 @@ async function ensureLiteForge() {
     if (switchErr.code === 4902 || switchErr.code === -32603) {
       // Chain not in wallet — add it
       try {
-        await window.ethereum.request({
+        await ethProvider.request({
           method: 'wallet_addEthereumChain',
           params: [LITEFORGE_CHAIN_PARAMS],
         });
@@ -3711,8 +3732,9 @@ async function wcmSwitchChain() {
   if (btn) btn.disabled = true;
   if (st)  st.textContent = 'Requesting switch…';
 
+  const ep = resolveProvider();
   try {
-    await window.ethereum.request({
+    await ep.request({
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: LITEFORGE_CHAIN_ID }],
     });
@@ -3723,7 +3745,7 @@ async function wcmSwitchChain() {
       // Chain not in wallet — add it
       if (st) st.textContent = 'Adding LiteForge to your wallet…';
       try {
-        await window.ethereum.request({
+        await ep.request({
           method: 'wallet_addEthereumChain',
           params: [{
             chainId:  LITEFORGE_CHAIN_ID,
