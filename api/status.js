@@ -1,14 +1,18 @@
-// GET /api/status — checks relayer wallet balance via RPC proxy
+// GET /api/status — checks onboarding contract balance + claims remaining
 
 import { ethers } from 'ethers';
 
-const RPC_URL = process.env.RPC_URL;
-const CLAIM_AMOUNT_ETH = process.env.CLAIM_AMOUNT_ETH || '0.01';
+const ONBOARD_ABI = [
+  'function claimAmount() view returns (uint256)',
+  'function claimsRemaining() view returns (uint256)',
+  'function contractBalance() view returns (uint256)',
+  'function totalClaims() view returns (uint256)',
+];
 
-async function rpcCall(method, params = []) {
-  // Try primary RPC, then fallback
+let _id = 1;
+async function rpc(method, params = []) {
   const urls = [
-    RPC_URL,
+    process.env.RPC_URL,
     'https://rpc.liteforge.caldera.xyz/http',
     'https://liteforge.rpc.caldera.xyz/http',
   ].filter(Boolean);
@@ -17,42 +21,62 @@ async function rpcCall(method, params = []) {
   for (const url of urls) {
     try {
       const res = await fetch(url, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-        signal: AbortSignal.timeout(8000),
+        body:    JSON.stringify({ jsonrpc: '2.0', id: _id++, method, params }),
+        signal:  AbortSignal.timeout(8000),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(json.error.message);
       return json.result;
-    } catch (e) {
-      lastErr = e;
-    }
+    } catch (e) { lastErr = e; }
   }
   throw lastErr;
+}
+
+// Encode a view call and decode the uint256 result
+function encodeCall(sig, address) {
+  const iface = new ethers.Interface([`function ${sig}`]);
+  return iface.encodeFunctionData(sig.split('(')[0], []);
+}
+function decodeUint(hex) {
+  return BigInt(hex);
 }
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { RELAYER_PRIVATE_KEY } = process.env;
-  if (!RELAYER_PRIVATE_KEY) return res.status(500).json({ available: false, reason: 'Misconfigured' });
+  const { ONBOARD_CONTRACT_ADDRESS, CLAIM_AMOUNT_ETH = '0.01' } = process.env;
+  if (!ONBOARD_CONTRACT_ADDRESS)
+    return res.status(500).json({ available: false, reason: 'Contract address not configured' });
+
+  const contract = ethers.getAddress(ONBOARD_CONTRACT_ADDRESS);
 
   try {
-    const key = RELAYER_PRIVATE_KEY.startsWith('0x') ? RELAYER_PRIVATE_KEY : `0x${RELAYER_PRIVATE_KEY}`;
-    const relayerAddress = new ethers.Wallet(key).address;
+    const iface = new ethers.Interface(ONBOARD_ABI);
 
-    const balHex = await rpcCall('eth_getBalance', [relayerAddress, 'latest']);
-    const balEth = parseFloat(ethers.formatEther(BigInt(balHex)));
-    const claimsLeft = Math.floor(balEth / (parseFloat(CLAIM_AMOUNT_ETH) + 0.001));
+    // Call claimsRemaining() and totalClaims() on the contract
+    const [remainingHex, totalHex, balanceHex, claimAmtHex] = await Promise.all([
+      rpc('eth_call', [{ to: contract, data: iface.encodeFunctionData('claimsRemaining') }, 'latest']),
+      rpc('eth_call', [{ to: contract, data: iface.encodeFunctionData('totalClaims')     }, 'latest']),
+      rpc('eth_call', [{ to: contract, data: iface.encodeFunctionData('contractBalance') }, 'latest']),
+      rpc('eth_call', [{ to: contract, data: iface.encodeFunctionData('claimAmount')     }, 'latest']),
+    ]);
+
+    const claimsLeft    = Number(iface.decodeFunctionResult('claimsRemaining', remainingHex)[0]);
+    const totalClaims   = Number(iface.decodeFunctionResult('totalClaims',     totalHex)[0]);
+    const balanceZkLTC  = parseFloat(ethers.formatEther(iface.decodeFunctionResult('contractBalance', balanceHex)[0]));
+    const claimAmount   = ethers.formatEther(iface.decodeFunctionResult('claimAmount', claimAmtHex)[0]);
 
     return res.status(200).json({
       available:    claimsLeft > 0,
       claimsLeft,
-      balanceZkLTC: balEth.toFixed(4),
-      claimAmount:  CLAIM_AMOUNT_ETH,
+      totalClaims,
+      balanceZkLTC: balanceZkLTC.toFixed(4),
+      claimAmount,
+      contract:     ONBOARD_CONTRACT_ADDRESS,
     });
   } catch (e) {
     return res.status(500).json({ available: false, reason: `RPC error: ${e.message}` });

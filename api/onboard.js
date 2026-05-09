@@ -1,14 +1,30 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  SilverStrike — Onboarding Relayer
 //  POST /api/onboard
-//  One claim per wallet. No IP limits. Sends zkLTC to new players.
+//
+//  Calls SilverStrikeOnboarding.claim(playerAddress) on-chain.
+//  Shows on block explorer as a named contract interaction.
+//
+//  Required env vars:
+//    RELAYER_PRIVATE_KEY          relayer wallet private key (0x...)
+//    ONBOARD_CONTRACT_ADDRESS     deployed SilverStrikeOnboarding address
+//    RPC_URL                      https://rpc.liteforge.caldera.xyz/http
+//    UPSTASH_REDIS_REST_URL       from upstash.com
+//    UPSTASH_REDIS_REST_TOKEN     from upstash.com
+//    CLAIM_AMOUNT_ETH             display only — actual amount set in contract
 // ═══════════════════════════════════════════════════════════════════════
 
 import { ethers } from 'ethers';
 
-const CLAIM_AMOUNT_ETH = process.env.CLAIM_AMOUNT_ETH || '0.01';
+// Minimal ABI — only what we need
+const ONBOARD_ABI = [
+  'function claim(address payable player) external',
+  'function claimAmount() view returns (uint256)',
+  'function claimsRemaining() view returns (uint256)',
+  'function contractBalance() view returns (uint256)',
+];
 
-// ── RPC with multiple fallback URLs + timeout ────────────────────────────
+// ── RPC with fallback URLs + timeout ────────────────────────────────────
 let _id = 1;
 async function rpc(method, params = []) {
   const urls = [
@@ -26,7 +42,7 @@ async function rpc(method, params = []) {
         body:    JSON.stringify({ jsonrpc: '2.0', id: _id++, method, params }),
         signal:  AbortSignal.timeout(10000),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       if (json.error) throw new Error(`${json.error.code}: ${json.error.message}`);
       return json.result;
@@ -54,6 +70,13 @@ const upstashSet = async (key, value) => {
   );
 };
 
+// ── ABI encode claim(address) call ──────────────────────────────────────
+// keccak256("claim(address)") = 0x1e83409a — first 4 bytes
+function encodeClaimCall(playerAddress) {
+  const iface = new ethers.Interface(ONBOARD_ABI);
+  return iface.encodeFunctionData('claim', [playerAddress]);
+}
+
 // ── Handler ──────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin',  '*');
@@ -62,79 +85,107 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST')   return res.status(405).json({ error: 'Method not allowed' });
 
-  // Validate wallet
+  // ── Validate wallet ─────────────────────────────────────────────────
   const { wallet } = req.body ?? {};
   if (!wallet)                   return res.status(400).json({ error: 'Missing wallet address' });
   if (!ethers.isAddress(wallet)) return res.status(400).json({ error: 'Invalid wallet address' });
   const address = ethers.getAddress(wallet);
 
-  // Check env
-  const { RELAYER_PRIVATE_KEY, UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN } = process.env;
-  if (!RELAYER_PRIVATE_KEY || !UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN)
-    return res.status(500).json({ error: 'Server misconfigured.' });
+  // ── Check env vars ──────────────────────────────────────────────────
+  const {
+    RELAYER_PRIVATE_KEY,
+    ONBOARD_CONTRACT_ADDRESS,
+    UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN,
+    CLAIM_AMOUNT_ETH = '0.01',
+  } = process.env;
 
-  // One-per-wallet check
+  if (!RELAYER_PRIVATE_KEY || !ONBOARD_CONTRACT_ADDRESS || !UPSTASH_REDIS_REST_URL || !UPSTASH_REDIS_REST_TOKEN) {
+    console.error('Missing env vars:', {
+      RELAYER_PRIVATE_KEY:      !!RELAYER_PRIVATE_KEY,
+      ONBOARD_CONTRACT_ADDRESS: !!ONBOARD_CONTRACT_ADDRESS,
+      UPSTASH_REDIS_REST_URL:   !!UPSTASH_REDIS_REST_URL,
+      UPSTASH_REDIS_REST_TOKEN: !!UPSTASH_REDIS_REST_TOKEN,
+    });
+    return res.status(500).json({ error: 'Server misconfigured — contact the team.' });
+  }
+
+  const contractAddress = ethers.getAddress(ONBOARD_CONTRACT_ADDRESS);
+
+  // ── One-per-wallet check (Redis) ────────────────────────────────────
   const redisKey = `silverstrike:onboard:${address}`;
   const claimed  = await upstashGet(redisKey);
   if (claimed) {
     let claimedAt = '';
     try { claimedAt = JSON.parse(claimed).claimedAt ?? ''; } catch {}
-    return res.status(409).json({ error: 'Already claimed', claimed: true,
-      message: `Wallet already received zkLTC.${claimedAt ? ` Claimed ${claimedAt}.` : ''}` });
+    return res.status(409).json({
+      error:   'Already claimed',
+      claimed: true,
+      message: `Wallet already received onboarding zkLTC.${claimedAt ? ` Claimed ${claimedAt}.` : ''}`,
+    });
   }
 
-  // Build wallet (signing only — no provider)
-  const key            = RELAYER_PRIVATE_KEY.startsWith('0x') ? RELAYER_PRIVATE_KEY : `0x${RELAYER_PRIVATE_KEY}`;
-  const relayerWallet  = new ethers.Wallet(key);
-  const relayerAddress = relayerWallet.address;
+  // ── Build relayer wallet ─────────────────────────────────────────────
+  const key           = RELAYER_PRIVATE_KEY.startsWith('0x') ? RELAYER_PRIVATE_KEY : `0x${RELAYER_PRIVATE_KEY}`;
+  const relayerWallet = new ethers.Wallet(key);
+  const relayerAddr   = relayerWallet.address;
 
   try {
-    const sendAmount = ethers.parseEther(CLAIM_AMOUNT_ETH);
-    const gasReserve = ethers.parseEther('0.001');
+    // Encode the claim(address) call
+    const calldata = encodeClaimCall(address);
 
-    // Fetch all network data in parallel
-    const [balHex, nonceHex, gasPriceHex, gasEstHex, chainIdHex] = await Promise.all([
-      rpc('eth_getBalance',        [relayerAddress, 'latest']),
-      rpc('eth_getTransactionCount',[relayerAddress, 'latest']),
-      rpc('eth_gasPrice',          []),
-      rpc('eth_estimateGas',       [{ from: relayerAddress, to: address, value: '0x' + sendAmount.toString(16) }]),
-      rpc('eth_chainId',           []),
+    // Fetch nonce, gas price, gas estimate, chainId in parallel
+    const [nonceHex, gasPriceHex, gasEstHex, chainIdHex] = await Promise.all([
+      rpc('eth_getTransactionCount', [relayerAddr, 'latest']),
+      rpc('eth_gasPrice',            []),
+      rpc('eth_estimateGas',         [{ from: relayerAddr, to: contractAddress, data: calldata }]),
+      rpc('eth_chainId',             []),
     ]);
 
-    if (BigInt(balHex) < sendAmount + gasReserve)
-      return res.status(503).json({ error: 'Relayer out of funds.', faucet: 'https://liteforge.hub.caldera.xyz' });
+    const nonce    = Number(nonceHex);
+    const gasPrice = BigInt(gasPriceHex);
+    const gasLimit = BigInt(gasEstHex) + 10000n; // buffer for contract execution
+    const chainId  = Number(chainIdHex);
 
-    // Sign legacy tx
+    // Sign the contract call transaction
     const signedTx = await relayerWallet.signTransaction({
-      to:       address,
-      value:    sendAmount,
-      nonce:    Number(nonceHex),
-      gasLimit: BigInt(gasEstHex) + 5000n,
-      gasPrice: BigInt(gasPriceHex),
-      chainId:  Number(chainIdHex),
+      to:       contractAddress,
+      value:    0n,            // no ETH sent — contract holds the funds
+      data:     calldata,
+      nonce,
+      gasLimit,
+      gasPrice,
+      chainId,
       type:     0,
     });
 
+    // Broadcast
     const txHash = await rpc('eth_sendRawTransaction', [signedTx]);
-    console.log(`✅ ${txHash} → ${address}`);
+    console.log(`✅ PlayerOnboarded: ${txHash} → ${address}`);
 
+    // Mark claimed in Redis
     await upstashSet(redisKey, JSON.stringify({
-      txHash, claimedAt: new Date().toISOString(), amount: CLAIM_AMOUNT_ETH,
+      txHash,
+      claimedAt: new Date().toISOString(),
+      amount:    CLAIM_AMOUNT_ETH,
+      contract:  contractAddress,
     }));
 
     return res.status(200).json({
-      success: true, txHash, amount: CLAIM_AMOUNT_ETH,
+      success:  true,
+      txHash,
+      amount:   CLAIM_AMOUNT_ETH,
       explorer: `https://explorer.liteforge.caldera.xyz/tx/${txHash}`,
-      message: `${CLAIM_AMOUNT_ETH} zkLTC sent to your wallet!`,
+      message:  `${CLAIM_AMOUNT_ETH} zkLTC sent to your wallet!`,
     });
 
   } catch (err) {
     const msg = err?.message ?? '';
     console.error('Onboard error:', msg);
-    if (msg.includes('insufficient funds'))
-      return res.status(503).json({ error: 'Relayer out of gas.', faucet: 'https://liteforge.hub.caldera.xyz' });
+    if (msg.includes('insufficient') || msg.includes('balance'))
+      return res.status(503).json({ error: 'Contract out of funds. Try the official faucet.', faucet: 'https://liteforge.hub.caldera.xyz' });
     if (msg.includes('nonce'))
       return res.status(503).json({ error: 'Relayer busy — retry in a few seconds.' });
-    return res.status(500).json({ error: `Failed: ${msg}` });
+    return res.status(500).json({ error: `Transaction failed: ${msg}` });
   }
 }
