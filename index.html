@@ -910,6 +910,52 @@
   }
   .gas-banner-dismiss:hover { color: #a0a0a8; }
 
+
+  /* ── Wrong chain modal ───────────────────────────────────────────────── */
+  #wrong-chain-modal {
+    display: none;
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(6px);
+    align-items: center; justify-content: center;
+  }
+  #wrong-chain-modal.show { display: flex; }
+  .wcm-card {
+    background: linear-gradient(145deg, #18181e, #141418);
+    border: 1px solid #ff6b3520;
+    border-top: 2px solid #ff6b35;
+    border-radius: 18px;
+    padding: 32px 28px;
+    max-width: 360px; width: 90%;
+    text-align: center;
+    box-shadow: 0 8px 48px rgba(0,0,0,0.8), 0 0 40px rgba(255,107,53,0.08);
+  }
+  .wcm-icon { font-size: 52px; margin-bottom: 14px; }
+  .wcm-title { font-size: 18px; font-weight: 700; color: #f0f0f2; margin-bottom: 8px; }
+  .wcm-sub { font-size: 13px; color: #888890; line-height: 1.6; margin-bottom: 20px; }
+  .wcm-chain-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(208,208,216,0.08); border: 1px solid #3a3a50;
+    border-radius: 99px; padding: 6px 16px; margin-bottom: 20px;
+    font-size: 13px; font-weight: 600; color: #d0d0d8;
+  }
+  .wcm-dot { width: 8px; height: 8px; border-radius: 50%; background: #d0d0d8;
+             box-shadow: 0 0 6px rgba(208,208,216,0.6); }
+  #wcm-switch-btn {
+    width: 100%; padding: 13px; font-size: 15px; font-weight: 700;
+    border-radius: 10px; border: 1px solid #808088; cursor: pointer;
+    background: linear-gradient(145deg, #909098, #c8c8d0, #d8d8e0, #a0a0a8);
+    color: #0b0b0d;
+    box-shadow: 0 2px 0 #505058, 0 4px 16px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,0.25);
+    transition: all .15s;
+  }
+  #wcm-switch-btn:hover {
+    background: linear-gradient(145deg, #b0b0b8, #e0e0e8, #f0f0f4, #b8b8c0);
+    transform: translateY(-1px);
+  }
+  #wcm-switch-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .wcm-status { margin-top: 12px; font-size: 12px; min-height: 18px; color: var(--text2); }
 </style>
 </head>
 <body>
@@ -938,9 +984,16 @@
     <span class="minipay-badge hidden" id="farcaster-badge" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa;">⬡ Farcaster</span>
   </div>
   <div class="topbar-right">
-    <button class="chain-badge" onclick="openChainModal()" id="chain-badge-btn">
+    <div class="chain-badge" id="chain-badge-btn" style="cursor:default;pointer-events:none;">
       <div class="chain-dot" id="chain-dot" style="background:var(--red)"></div>
-      <span id="chain-name-label">No Network</span>
+      <span id="chain-name-label">LiteForge</span>
+    </div>
+    <button id="gas-topbar-btn" onclick="showGasModal()"
+      style="display:none;padding:7px 13px;font-size:12px;font-weight:700;
+             border-radius:8px;border:1px solid #505058;background:linear-gradient(145deg,#282830,#1e1e26);
+             color:#c0c0c8;cursor:pointer;white-space:nowrap;gap:5px;align-items:center;
+             box-shadow:0 0 10px rgba(180,180,220,0.12);transition:all .15s;">
+      ⛽ Get Gas
     </button>
     <button class="wallet-btn" id="wallet-btn" onclick="connectWallet()">
       <div class="wallet-avatar" id="wallet-avatar"></div>
@@ -1615,27 +1668,6 @@
       <div class="onboarding-desc">Reach SILVER milestones to claim on-chain badge NFTs: Common, Rare, Mythical, Legendary, and the ultimate God badge for true grinders.</div>
     </div>
 
-    <div class="onboarding-step" data-step="4">
-      <div class="onboarding-icon">⛽</div>
-      <div class="onboarding-title">Get Free Gas To Start</div>
-      <div class="onboarding-desc">
-        Every action on LiteForge needs a tiny amount of zkLTC for gas fees.
-        New to the chain? Claim <strong>0.01 zkLTC</strong> — enough for over
-        <strong>1,000 mine clicks</strong>. One claim per wallet, forever.
-      </div>
-      <div id="ob-status-msg" style="min-height:36px;margin:10px 0;font-size:13px;color:var(--text2);text-align:center;"></div>
-      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-        <button class="btn btn-primary" id="ob-claim-btn" onclick="doOnboardClaim()" style="padding:11px 32px;font-size:15px;">
-          ⛽&nbsp; Claim 0.01 zkLTC
-        </button>
-        <button class="btn btn-sm" onclick="closeOnboarding()">Skip</button>
-      </div>
-      <div style="margin-top:14px;font-size:12px;color:var(--text3);text-align:center;">
-        Already have zkLTC?
-        <span onclick="closeOnboarding()" style="cursor:pointer;text-decoration:underline;color:var(--text2);">Skip this step →</span>
-      </div>
-    </div>
-
     <div style="display:flex;gap:10px;justify-content:center;" id="ob-nav-row">
       <button class="btn btn-sm" id="onboarding-skip" onclick="closeOnboarding()">Skip</button>
       <button class="btn btn-primary" id="onboarding-next" onclick="nextOnboardingStep()">Next →</button>
@@ -1643,6 +1675,65 @@
   </div>
 </div>
 
+
+
+<!-- ── Gas Claim Modal ── -->
+<div id="gas-modal" style="display:none;position:fixed;inset:0;z-index:9999;
+     background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+     align-items:center;justify-content:center;">
+  <div style="background:linear-gradient(145deg,#18181e,#141418);
+              border:1px solid #3a3a50;border-radius:18px;
+              padding:28px 24px;max-width:380px;width:90%;
+              box-shadow:0 8px 40px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.04);
+              position:relative;text-align:center;">
+    <button onclick="hideGasModal()" style="position:absolute;top:12px;right:16px;
+      background:none;border:none;color:#505058;font-size:20px;cursor:pointer;line-height:1;">✕</button>
+    <div style="font-size:48px;margin-bottom:12px;filter:drop-shadow(0 0 12px rgba(180,180,255,0.4));">⛽</div>
+    <div style="font-size:18px;font-weight:700;color:#e0e0e8;margin-bottom:8px;">Get Free Gas</div>
+    <div style="font-size:13px;color:#888890;line-height:1.6;margin-bottom:16px;">
+      Claim <strong style="color:#d0d0d8;">0.01 zkLTC</strong> to cover gas fees
+      for <strong style="color:#d0d0d8;">1,000+ mine clicks</strong>.<br>
+      One claim per wallet, forever.
+    </div>
+    <div id="gas-modal-status" style="min-height:32px;font-size:13px;margin-bottom:12px;color:var(--text2);"></div>
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+      <button id="gas-modal-btn" onclick="doGasClaim()"
+        style="padding:11px 28px;font-size:14px;font-weight:700;border-radius:8px;
+               background:linear-gradient(145deg,#909098,#c8c8d0,#d8d8e0,#a0a0a8);
+               border:1px solid #808088;color:#0b0b0d;cursor:pointer;
+               box-shadow:0 2px 0 #505058,0 4px 12px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.25);">
+        ⛽ Claim 0.01 zkLTC
+      </button>
+      <a href="https://liteforge.hub.caldera.xyz" target="_blank"
+         style="padding:11px 16px;font-size:13px;color:var(--text2);
+                border:1px solid #303038;border-radius:8px;text-decoration:none;
+                background:#111113;white-space:nowrap;">
+        Official Faucet →
+      </a>
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Wrong Chain Modal — shown when wallet is not on LiteForge ── -->
+<div id="wrong-chain-modal">
+  <div class="wcm-card">
+    <div class="wcm-icon">⛓️</div>
+    <div class="wcm-title">Wrong Network</div>
+    <div class="wcm-sub">
+      SilverStrike runs exclusively on LiteForge (LitVM).<br>
+      Please switch your wallet to continue.
+    </div>
+    <div class="wcm-chain-pill">
+      <div class="wcm-dot"></div>
+      LiteForge (LitVM) · Chain ID 4441
+    </div>
+    <button id="wcm-switch-btn" onclick="wcmSwitchChain()">
+      Switch to LiteForge
+    </button>
+    <div class="wcm-status" id="wcm-status"></div>
+  </div>
+</div>
 
 <div id="toast-wrap"></div>
 
@@ -1759,7 +1850,7 @@ const CHAINS = {
     minerName:"CeloMiner", tokenSymbol:"cBALL", badgeName:"CeloBadge",
     appTitle:"CeloMiner", logoEmoji:"🌿",
     // ↓ Paste your deployed addresses here after running deploy_baseminer.py
-    contracts:{ token:"", miner:"", badge:"" }
+    contracts:{ token:"0xfa83D5f40425Cdb7139855b3641869D003b0E8ab", miner:"0x1f22f19a18038D9FB2b51BFb0878227f1926233f", badge:"0xc516406230FF9AdD7138808Df3948636aeAaC44c" }
   },
   44787: {
     name:"Celo Alfajores", short:"Alfajores", icon:"🌱",
@@ -2143,15 +2234,7 @@ async function autoConnectFarcaster() {
     provider = new ethers.BrowserProvider(ethProvider);
     signer   = await provider.getSigner();
 
-    ethProvider.on('accountsChanged', newAccs => {
-      address = newAccs[0] || null;
-      updateWalletUI();
-      if (address) { initContracts(); checkGasBanner(); }
-    });
-    ethProvider.on('chainChanged', hex => {
-      const id = parseInt(hex, 16);
-      if (CHAINS[id]) { selectedChainId = id; applyChainTheme(id); applyChainAddresses(id); updateChainBadge(); initContracts(); }
-    });
+    // Event listeners moved to connectWallet() for LiteForge-locked behaviour
 
     updateWalletUI();
     if (name) {
@@ -2368,7 +2451,7 @@ function setText(id, text, val, prop) {
 // ════════════════════════════════════════════════════════════════
 function openChainModal() {
   renderChainList();
-  document.getElementById('chain-modal').classList.remove('hidden');
+  // Chain switching disabled — SilverStrike is locked to LiteForge
 }
 
 function renderChainList() {
@@ -2412,7 +2495,7 @@ function updateChainBadge() {
 async function connectWallet() {
   if (await isFarcaster()) { await autoConnectFarcaster(); return; }
   if (!window.ethereum) {
-    toast('No wallet found', 'Install MetaMask, Rabby Wallet, or open this page in a LiteForge-compatible wallet.', 'error');
+    toast('No wallet found', 'Install MetaMask or Rabby Wallet to play SilverStrike.', 'error');
     return;
   }
   if (isMiniPay()) { await autoConnectMiniPay(); return; }
@@ -2422,12 +2505,98 @@ async function connectWallet() {
     address  = accs[0];
     provider = new ethers.BrowserProvider(window.ethereum);
     signer   = await provider.getSigner();
+
+    // Always force LiteForge — prompt to switch/add if wrong chain
+    await ensureLiteForge();
+
     updateWalletUI();
-    await checkNetworkMatch();
     initContracts();
-    toast('Wallet connected', shortAddr(address), 'success');
+    initCIContracts();
+    checkGasBanner();
+    toast('Connected to LiteForge', shortAddr(address), 'success');
+
+    // Watch for chain changes
+    window.ethereum.on('chainChanged', async (hex) => {
+      const id = parseInt(hex, 16);
+      if (id !== 4441) {
+        showWrongChainModal();
+      } else {
+        hideWrongChainModal();
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer   = await provider.getSigner();
+        selectedChainId = 4441;
+        cfg.chainId     = 4441;
+        applyChainTheme(4441);
+        applyChainAddresses(4441);
+        updateChainBadge();
+        initContracts();
+        initCIContracts();
+        checkGasBanner();
+      }
+    });
+
+    // Watch for account changes
+    window.ethereum.on('accountsChanged', newAccs => {
+      address = newAccs[0] || null;
+      updateWalletUI();
+      if (address) { initContracts(); initCIContracts(); checkGasBanner(); }
+    });
+
   } catch(e) {
-    toast('Connection failed', e.message, 'error');
+    if (e.code !== 4001) // ignore user rejection
+      toast('Connection failed', e.message, 'error');
+  }
+}
+
+// ── Ensure wallet is on LiteForge — switch or add chain ─────────────────
+async function ensureLiteForge() {
+  const LITEFORGE_CHAIN_ID     = '0x115d'; // 4441 in hex
+  const LITEFORGE_CHAIN_PARAMS = {
+    chainId:  LITEFORGE_CHAIN_ID,
+    chainName: 'LiteForge (LitVM)',
+    nativeCurrency: { name: 'zkLTC', symbol: 'zkLTC', decimals: 18 },
+    rpcUrls:        ['https://rpc.liteforge.caldera.xyz/http'],
+    blockExplorerUrls: ['https://explorer.liteforge.caldera.xyz'],
+  };
+
+  const net = await provider.getNetwork();
+  if (Number(net.chainId) === 4441) return; // already on LiteForge
+
+  // Wrong chain — show modal and try to switch
+  showWrongChainModal();
+
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: LITEFORGE_CHAIN_ID }],
+    });
+  } catch (switchErr) {
+    if (switchErr.code === 4902 || switchErr.code === -32603) {
+      // Chain not in wallet — add it
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [LITEFORGE_CHAIN_PARAMS],
+        });
+      } catch (addErr) {
+        throw new Error('Please add LiteForge to your wallet manually.');
+      }
+    } else if (switchErr.code === 4001) {
+      throw new Error('Please switch to LiteForge to play SilverStrike.');
+    } else {
+      throw switchErr;
+    }
+  }
+
+  // Re-check after switch
+  const net2 = await provider.getNetwork();
+  if (Number(net2.chainId) === 4441) {
+    hideWrongChainModal();
+    selectedChainId = 4441;
+    cfg.chainId     = 4441;
+    applyChainTheme(4441);
+    applyChainAddresses(4441);
+    updateChainBadge();
   }
 }
 
@@ -2444,26 +2613,11 @@ function updateWalletUI() {
 }
 
 async function checkNetworkMatch() {
+  // Replaced by ensureLiteForge() — kept as stub to avoid errors
   if (!provider) return;
   const net = await provider.getNetwork();
-  const wid = Number(net.chainId);
-  const mismatch = wid !== selectedChainId;
-  document.getElementById('network-warn').classList.toggle('hidden', !mismatch);
-  const dot = document.getElementById('chain-dot');
-  if (mismatch) {
-    dot.style.background = 'var(--amber)';
-  } else {
-    const c = CHAINS[selectedChainId];
-    dot.style.background = c ? c.theme.accent : 'var(--green)';
-    // Wallet is on a known chain — sync theme to wallet
-    if (CHAINS[wid]) {
-      selectedChainId = wid;
-      applyChainTheme(wid);
-      applyChainAddresses(wid);
-      updateChainBadge();
-      renderChainList();
-    }
-  }
+  if (Number(net.chainId) !== 4441) showWrongChainModal();
+  else hideWrongChainModal();
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -3195,7 +3349,7 @@ function updateGodTracker(mined, clicks) {
 
 // ── #9 Onboarding ─────────────────────────────────────────────────
 let _onboardStep = 0;
-const ONBOARD_STEPS = 5;
+const ONBOARD_STEPS = 4;
 
 function showOnboarding() {
   if (localStorage.getItem('bm_onboarded')) return;
@@ -3224,9 +3378,7 @@ function nextOnboardingStep() {
     closeOnboarding();
   } else {
     renderOnboardingStep();
-    // Hide normal nav buttons on the gas-claim step (it has its own buttons)
-    const navRow = document.getElementById('ob-nav-row');
-    if (navRow) navRow.style.display = (_onboardStep === ONBOARD_STEPS - 1) ? 'none' : 'flex';
+
   }
 }
 
@@ -3391,46 +3543,67 @@ async function doMintPass() {
 
 
 // ════════════════════════════════════════════════════════════════════════
-//  GAS BANNER — Mine tab persistent onboarding button
-//  Shows when:  wallet connected + zkLTC balance = 0 + not dismissed
-//  Hides when:  already claimed, has balance, or user dismisses
+//  GAS CLAIM SYSTEM
+//  • ⛽ topbar button  — always accessible after wallet connect
+//  • Gas banner        — shown on Mine tab when balance = 0
+//  • Gas modal         — popup triggered by topbar button or banner
+//  All three share doGasClaim() as the single claim function.
 // ════════════════════════════════════════════════════════════════════════
 
-const GAS_BANNER_DISMISSED_KEY = 'ss_gas_banner_dismissed';
 const GAS_CLAIMED_KEY          = 'ss_gas_claimed';
+const GAS_BANNER_DISMISSED_KEY = 'ss_gas_banner_dismissed';
 
-// Called after wallet connects and balance is known
+// ── Modal open/close ──────────────────────────────────────────────────
+function showGasModal() {
+  const modal = document.getElementById('gas-modal');
+  if (modal) modal.style.display = 'flex';
+  // Reset status if previously shown
+  const st = document.getElementById('gas-modal-status');
+  if (st && !localStorage.getItem(GAS_CLAIMED_KEY)) st.innerHTML = '';
+}
+function hideGasModal() {
+  const modal = document.getElementById('gas-modal');
+  if (modal) modal.style.display = 'none';
+}
+// Close modal on backdrop click
+document.getElementById('gas-modal')?.addEventListener('click', function(e) {
+  if (e.target === this) hideGasModal();
+});
+
+// ── Show/hide topbar gas button based on balance ──────────────────────
 async function checkGasBanner() {
-  const banner = document.getElementById('gas-banner');
-  if (!banner) return;
+  const topbarBtn = document.getElementById('gas-topbar-btn');
+  const banner    = document.getElementById('gas-banner');
 
-  // Don't show if user dismissed or already claimed this session
-  if (localStorage.getItem(GAS_BANNER_DISMISSED_KEY)) return;
-  if (localStorage.getItem(GAS_CLAIMED_KEY))           return;
-  if (!address) return;
+  if (!address || !provider) {
+    if (topbarBtn) topbarBtn.style.display = 'none';
+    if (banner)    banner.style.display    = 'none';
+    return;
+  }
+
+  // If already claimed this session, hide everything
+  if (localStorage.getItem(GAS_CLAIMED_KEY)) {
+    if (topbarBtn) topbarBtn.style.display = 'none';
+    if (banner)    banner.style.display    = 'none';
+    return;
+  }
 
   try {
-    // Check native zkLTC balance
     const bal = await provider.getBalance(address);
+
     if (bal > 0n) {
-      // Player has zkLTC — no need for banner
-      banner.style.display = 'none';
-      return;
+      // Has gas — hide everything
+      if (topbarBtn) topbarBtn.style.display = 'none';
+      if (banner)    banner.style.display    = 'none';
+    } else {
+      // Zero balance — show topbar button always, banner unless dismissed
+      if (topbarBtn) topbarBtn.style.display = 'flex';
+      if (banner && !localStorage.getItem(GAS_BANNER_DISMISSED_KEY)) {
+        banner.style.display = 'block';
+      }
     }
-
-    // Also check if relayer is available before showing
-    const r    = await fetch(`${RELAYER_BASE_URL}/api/status`).catch(() => null);
-    const data = r ? await r.json().catch(() => ({})) : {};
-
-    if (!data.available) {
-      // Relayer empty — show faucet link only, hide claim button
-      const btn = document.getElementById('gas-banner-btn');
-      if (btn) btn.style.display = 'none';
-    }
-
-    banner.style.display = 'block';
   } catch (e) {
-    // Silently fail — banner stays hidden
+    // Silently fail
   }
 }
 
@@ -3440,29 +3613,33 @@ function dismissGasBanner() {
   localStorage.setItem(GAS_BANNER_DISMISSED_KEY, '1');
 }
 
+// ── The single claim function used by all three entry points ──────────
 async function doGasClaim() {
-  const btn    = document.getElementById('gas-banner-btn');
-  const status = document.getElementById('gas-banner-status');
-
-  // Also update the onboarding modal status if it's open
-  const obStatus = document.getElementById('ob-status-msg');
-  const obBtn    = document.getElementById('ob-claim-btn');
-
-  const setStatus = (html, color) => {
-    if (status)   { status.innerHTML   = `<span style="color:${color}">${html}</span>`; }
-    if (obStatus) { obStatus.innerHTML = `<span style="color:${color}">${html}</span>`; }
-  };
-  const setBtn = (text, disabled) => {
-    if (btn)   { btn.disabled   = disabled; btn.textContent   = text; }
-    if (obBtn) { obBtn.disabled = disabled; obBtn.textContent = text; }
-  };
-
   if (!address) {
-    setStatus('⚠️ Connect your wallet first then click Claim.', 'var(--amber)');
+    // Shouldn't happen since button only shows after connect — but just in case
+    alert('Please connect your wallet first.');
     return;
   }
 
-  setBtn('⏳ Sending…', true);
+  // Collect all status/button elements across banner + modal
+  const allBtns = [
+    document.getElementById('gas-banner-btn'),
+    document.getElementById('gas-modal-btn'),
+  ].filter(Boolean);
+
+  const allStatus = [
+    document.getElementById('gas-banner-status'),
+    document.getElementById('gas-modal-status'),
+  ].filter(Boolean);
+
+  const setStatus = (msg, color) => {
+    allStatus.forEach(el => { el.innerHTML = `<span style="color:${color}">${msg}</span>`; });
+  };
+  const setBtns = (text, disabled) => {
+    allBtns.forEach(btn => { btn.disabled = disabled; btn.textContent = text; });
+  };
+
+  setBtns('⏳ Sending…', true);
   setStatus('Contacting relayer…', 'var(--text2)');
 
   try {
@@ -3475,14 +3652,10 @@ async function doGasClaim() {
 
     // Already claimed
     if (res.status === 409) {
-      setStatus('✅ This wallet already claimed its free zkLTC. You\'re good to go!', 'var(--green)');
-      setBtn('✅ Already Claimed', true);
       localStorage.setItem(GAS_CLAIMED_KEY, '1');
-      setTimeout(() => {
-        const banner = document.getElementById('gas-banner');
-        if (banner) banner.style.display = 'none';
-        closeOnboarding();
-      }, 3000);
+      setStatus('✅ This wallet already claimed its free zkLTC — you\'re good to go!', 'var(--green)');
+      setBtns('✅ Already Claimed', true);
+      setTimeout(() => { hideGasModal(); checkGasBanner(); }, 3000);
       return;
     }
 
@@ -3495,27 +3668,85 @@ async function doGasClaim() {
       `<a href="${data.explorer}" target="_blank" style="color:var(--accent);text-decoration:underline;">View tx →</a>`,
       'var(--green)'
     );
-    setBtn('✅ Claimed!', true);
+    setBtns('✅ Claimed!', true);
 
-    // Fade out banner after 5s
+    // Hide topbar button + banner, close modal after 5s
     setTimeout(() => {
+      hideGasModal();
+      checkGasBanner();
       const banner = document.getElementById('gas-banner');
-      if (banner) {
-        banner.style.transition = 'opacity 0.6s ease';
-        banner.style.opacity    = '0';
-        setTimeout(() => { banner.style.display = 'none'; }, 700);
-      }
-      closeOnboarding();
+      if (banner) { banner.style.opacity = '0'; banner.style.transition = 'opacity 0.6s'; setTimeout(() => { banner.style.display = 'none'; }, 700); }
     }, 5000);
 
   } catch (err) {
     setStatus(`❌ ${err.message || 'Request failed. Please try again.'}`, 'var(--red)');
-    setBtn('⛽ Claim Free Gas', false);
+    setBtns('⛽ Claim 0.01 zkLTC', false);
   }
 }
 
-// Make doOnboardClaim an alias so the modal button uses the same function
+// doOnboardClaim kept for any legacy references
 function doOnboardClaim() { doGasClaim(); }
+
+
+// ════════════════════════════════════════════════════════════════════════
+//  WRONG CHAIN MODAL
+//  Shown whenever the connected wallet is not on LiteForge (4441).
+//  Blocks the UI until user switches — can't play on wrong chain.
+// ════════════════════════════════════════════════════════════════════════
+
+function showWrongChainModal() {
+  document.getElementById('wrong-chain-modal').classList.add('show');
+}
+function hideWrongChainModal() {
+  document.getElementById('wrong-chain-modal').classList.remove('show');
+  const st = document.getElementById('wcm-status');
+  if (st) st.textContent = '';
+}
+
+async function wcmSwitchChain() {
+  const btn = document.getElementById('wcm-switch-btn');
+  const st  = document.getElementById('wcm-status');
+  const LITEFORGE_CHAIN_ID = '0x115d'; // 4441
+
+  if (btn) btn.disabled = true;
+  if (st)  st.textContent = 'Requesting switch…';
+
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: LITEFORGE_CHAIN_ID }],
+    });
+    // chainChanged event will handle the rest
+    if (st) st.innerHTML = '<span style="color:var(--green)">✅ Switched! Loading…</span>';
+  } catch (err) {
+    if (err.code === 4902 || err.code === -32603) {
+      // Chain not in wallet — add it
+      if (st) st.textContent = 'Adding LiteForge to your wallet…';
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId:  LITEFORGE_CHAIN_ID,
+            chainName: 'LiteForge (LitVM)',
+            nativeCurrency: { name: 'zkLTC', symbol: 'zkLTC', decimals: 18 },
+            rpcUrls:        ['https://rpc.liteforge.caldera.xyz/http'],
+            blockExplorerUrls: ['https://explorer.liteforge.caldera.xyz'],
+          }],
+        });
+        if (st) st.innerHTML = '<span style="color:var(--green)">✅ LiteForge added! Switching…</span>';
+      } catch (addErr) {
+        if (st) st.innerHTML = '<span style="color:var(--red)">❌ Could not add chain. Add LiteForge manually in your wallet settings.</span>';
+        if (btn) btn.disabled = false;
+      }
+    } else if (err.code === 4001) {
+      if (st) st.innerHTML = '<span style="color:var(--amber)">⚠️ You must switch to LiteForge to play.</span>';
+      if (btn) btn.disabled = false;
+    } else {
+      if (st) st.innerHTML = `<span style="color:var(--red)">❌ ${err.message}</span>`;
+      if (btn) btn.disabled = false;
+    }
+  }
+}
 
 </script>
 </body>
