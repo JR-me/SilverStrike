@@ -1518,7 +1518,7 @@
           <div class="stat-label">SilverPass NFT</div>
           <input class="config-input" id="ci-addr-pass" placeholder="0x… SilverPass address" />
         </div>
-        <button class="btn btn-primary btn-sm" onclick="saveCheckInAddresses()">Save &amp; Load</button>
+        <button class="btn btn-primary btn-sm" onclick="saveCheckInAddresses()" style="display:none;">Save &amp; Load</button>
       </div>
     </div>
   </div>
@@ -1849,7 +1849,14 @@ const CHAINS = {
             text2:"#a8a8b0",text3:"#585860",glow:"rgba(220,220,228,0.22)" },
     minerName:"SilverStrike", tokenSymbol:"SILVER", badgeName:"SilverBadge",
     appTitle:"SilverStrike", logoEmoji:"⛏️",
-    contracts:{ token:"0xbC10aFbFDEfa1B7beB1CB6BA024A67AB51AA963D", miner:"0x7EcB8FB91CB91EF22e7ff86799a59D740A197648", badge:"0x208c4EeDD462B72430D7301CcCe91771a10F5AD2" }
+    contracts:{
+      token:   "0xbC10aFbFDEfa1B7beB1CB6BA024A67AB51AA963D",
+      miner:   "0x7EcB8FB91CB91EF22e7ff86799a59D740A197648",
+      badge:   "0x208c4EeDD462B72430D7301CcCe91771a10F5AD2",
+      gstrike: "0x5c42329720577dd9BDCBB0658037de90A3cF01e1",
+      checkin: "0x934CbD8a7bbb53Eeff0fb80641EE3Cd174f9f653",
+      pass:    "" // deploy SilverPass and add address here
+    }
   }
 };
 
@@ -3298,14 +3305,27 @@ function saveCheckInAddresses() {
 
 function initCIContracts() {
   if (!provider) return;
-  const s = signer || provider;
-  const g = document.getElementById('ci-addr-gstrike')?.value.trim() || loadCIAddr('gstrike');
-  const c = document.getElementById('ci-addr-checkin')?.value.trim() || loadCIAddr('checkin');
-  const p = document.getElementById('ci-addr-pass')?.value.trim() || loadCIAddr('pass');
+  const s   = signer || provider;
+  const cfg = CHAINS[selectedChainId] || CHAINS[4441];
+
+  // Load from hardcoded CHAINS config first, fall back to localStorage/input
+  const g = cfg?.contracts?.gstrike || document.getElementById('ci-addr-gstrike')?.value.trim() || loadCIAddr('gstrike');
+  const c = cfg?.contracts?.checkin || document.getElementById('ci-addr-checkin')?.value.trim() || loadCIAddr('checkin');
+  const p = cfg?.contracts?.pass    || document.getElementById('ci-addr-pass')?.value.trim()    || loadCIAddr('pass');
+
+  // Pre-fill the input fields so players can see the addresses
+  const gEl = document.getElementById('ci-addr-gstrike');
+  const cEl = document.getElementById('ci-addr-checkin');
+  const pEl = document.getElementById('ci-addr-pass');
+  if (gEl && g) { gEl.value = g; gEl.readOnly = true; gEl.style.opacity = '0.6'; }
+  if (cEl && c) { cEl.value = c; cEl.readOnly = true; cEl.style.opacity = '0.6'; }
+  if (pEl && p) { pEl.value = p; pEl.readOnly = true; pEl.style.opacity = '0.6'; }
+  else if (pEl) { pEl.placeholder = '0x… deploy SilverPass first'; }
+
   try {
     ciContracts.gstrike = g ? new ethers.Contract(g, CI_GSTRIKE_ABI, s) : null;
     ciContracts.checkin = c ? new ethers.Contract(c, CI_CHECKIN_ABI, s) : null;
-    ciContracts.pass    = p ? new ethers.Contract(p, CI_PASS_ABI, s) : null;
+    ciContracts.pass    = p ? new ethers.Contract(p, CI_PASS_ABI, s)    : null;
   } catch(e) { ciContracts = { gstrike:null, checkin:null, pass:null }; }
 }
 
@@ -3485,8 +3505,7 @@ function dismissGasBanner() {
 
 // ── The single claim function used by all three entry points ──────────
 async function doGasClaim() {
-  if (!address) {
-    // Shouldn't happen since button only shows after connect — but just in case
+  if (!address || !signer) {
     alert('Please connect your wallet first.');
     return;
   }
@@ -3509,14 +3528,35 @@ async function doGasClaim() {
     allBtns.forEach(btn => { btn.disabled = disabled; btn.textContent = text; });
   };
 
-  setBtns('⏳ Sending…', true);
-  setStatus('Contacting relayer…', 'var(--text2)');
+  setBtns('⏳ Sign in wallet…', true);
+  setStatus('Check your wallet — sign the free message to verify ownership…', 'var(--text2)');
 
   try {
+    // ── Step 1: Sign a message proving wallet ownership ────────────────
+    // This is FREE — no gas, no transaction. Just a cryptographic proof.
+    const timestamp = Date.now();
+    const message   = `SilverStrike Onboarding
+Wallet: ${address}
+Timestamp: ${timestamp}`;
+
+    let signature;
+    try {
+      signature = await signer.signMessage(message);
+    } catch (signErr) {
+      // User rejected the signing request
+      setStatus('⚠️ Signature cancelled — you must sign to verify wallet ownership.', 'var(--amber)');
+      setBtns('⛽ Claim 0.01 zkLTC', false);
+      return;
+    }
+
+    setBtns('⏳ Sending…', true);
+    setStatus('Signature verified ✓ — contacting relayer…', 'var(--text2)');
+
+    // ── Step 2: Send wallet + message + signature to the API ──────────
     const res  = await fetch(`${RELAYER_BASE_URL}/api/onboard`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ wallet: address }),
+      body:    JSON.stringify({ wallet: address, message, signature }),
     });
     const data = await res.json();
 
@@ -3540,7 +3580,6 @@ async function doGasClaim() {
     );
     setBtns('✅ Claimed!', true);
 
-    // Hide topbar button + banner, close modal after 5s
     setTimeout(() => {
       hideGasModal();
       checkGasBanner();
